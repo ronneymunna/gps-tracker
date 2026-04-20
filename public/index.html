@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live GPS Geofence</title>
+  <title>Live GPS Geofence Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet Map -->
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -27,7 +27,7 @@ Radius: <span id="rval">300</span> m<br>
 
 <script>
 
-// Map initial
+// -------- MAP SETUP --------
 let map = L.map('map').setView([21.125, 79.046], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
@@ -36,7 +36,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 // Marker (device)
 let marker = L.marker([21.125, 79.046]).addTo(map);
 
-// Geofence circle
+// Circle (geofence)
 let circle = L.circle([21.125, 79.046], {
   radius: 300,
   color: 'blue'
@@ -44,7 +44,24 @@ let circle = L.circle([21.125, 79.046], {
 
 let radius = 300;
 
-// 🎚️ Radius slider
+// -------- LOAD RADIUS FROM SERVER --------
+async function loadRadius() {
+  try {
+    let res = await fetch("/radius");
+    let data = await res.json();
+
+    radius = data.radius;
+
+    document.getElementById("slider").value = radius;
+    document.getElementById("rval").innerText = radius;
+
+    circle.setRadius(radius);
+  } catch (err) {
+    console.log("Radius load error:", err);
+  }
+}
+
+// -------- SLIDER CHANGE --------
 document.getElementById("slider").oninput = async function () {
   radius = this.value;
   document.getElementById("rval").innerText = radius;
@@ -58,7 +75,7 @@ document.getElementById("slider").oninput = async function () {
   });
 };
 
-// 📡 Fetch location
+// -------- UPDATE LOCATION --------
 async function updateLocation() {
   try {
     let res = await fetch("/location");
@@ -81,7 +98,7 @@ async function updateLocation() {
         [lat, lon]
       );
 
-      // Status display
+      // Status + color
       if (distance > radius) {
         document.getElementById("status").innerText = "Status: OUTSIDE 🚨";
 
@@ -102,12 +119,16 @@ async function updateLocation() {
     map.setView([lat, lon], 16);
 
   } catch (err) {
-    console.log(err);
+    console.log("Location error:", err);
   }
 }
 
-// 🔄 Refresh every 3 sec
+// -------- AUTO REFRESH --------
 setInterval(updateLocation, 3000);
+setInterval(loadRadius, 5000);
+
+// Initial load
+loadRadius();
 
 </script>
 
