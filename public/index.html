@@ -4,7 +4,6 @@
   <title>Live GPS Geofence Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -33,10 +32,8 @@ let map = L.map('map').setView([21.125, 79.046], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
-// Marker (device)
 let marker = L.marker([21.125, 79.046]).addTo(map);
 
-// Circle (geofence)
 let circle = L.circle([21.125, 79.046], {
   radius: 300,
   color: 'blue'
@@ -44,25 +41,10 @@ let circle = L.circle([21.125, 79.046], {
 
 let radius = 300;
 
-// -------- LOAD RADIUS FROM SERVER --------
-async function loadRadius() {
-  try {
-    let res = await fetch("/radius");
-    let data = await res.json();
+// -------- SLIDER --------
+const slider = document.getElementById("slider");
 
-    radius = data.radius;
-
-    document.getElementById("slider").value = radius;
-    document.getElementById("rval").innerText = radius;
-
-    circle.setRadius(radius);
-  } catch (err) {
-    console.log("Radius load error:", err);
-  }
-}
-
-// -------- SLIDER CHANGE --------
-document.getElementById("slider").oninput = async function () {
+slider.oninput = async function () {
   radius = this.value;
   document.getElementById("rval").innerText = radius;
 
@@ -75,7 +57,34 @@ document.getElementById("slider").oninput = async function () {
   });
 };
 
-// -------- UPDATE LOCATION --------
+// -------- SYNC RADIUS --------
+let isUserChanging = false;
+
+slider.addEventListener("mousedown", () => isUserChanging = true);
+slider.addEventListener("mouseup", () => isUserChanging = false);
+slider.addEventListener("touchstart", () => isUserChanging = true);
+slider.addEventListener("touchend", () => isUserChanging = false);
+
+async function syncRadius() {
+  try {
+    let res = await fetch("/radius");
+    let data = await res.json();
+
+    if (!isUserChanging) {
+      radius = data.radius;
+
+      slider.value = radius;
+      document.getElementById("rval").innerText = radius;
+
+      circle.setRadius(radius);
+    }
+
+  } catch (err) {
+    console.log("Sync error:", err);
+  }
+}
+
+// -------- LOCATION UPDATE --------
 async function updateLocation() {
   try {
     let res = await fetch("/location");
@@ -86,19 +95,13 @@ async function updateLocation() {
     let homeLat = data.homeLat;
     let homeLon = data.homeLon;
 
-    // Move marker
     marker.setLatLng([lat, lon]);
 
-    // Set geofence center
     if (homeLat !== null && homeLon !== null) {
       circle.setLatLng([homeLat, homeLon]);
 
-      let distance = map.distance(
-        [homeLat, homeLon],
-        [lat, lon]
-      );
+      let distance = map.distance([homeLat, homeLon], [lat, lon]);
 
-      // Status + color
       if (distance > radius) {
         document.getElementById("status").innerText = "Status: OUTSIDE 🚨";
 
@@ -123,49 +126,12 @@ async function updateLocation() {
   }
 }
 
-// -------- AUTO REFRESH --------
+// -------- AUTO RUN --------
 setInterval(updateLocation, 3000);
-<script>
-
-// prevent overwrite while user dragging
-let isUserChanging = false;
-
-// detect slider interaction
-const slider = document.getElementById("slider");
-
-slider.addEventListener("mousedown", () => isUserChanging = true);
-slider.addEventListener("mouseup", () => isUserChanging = false);
-slider.addEventListener("touchstart", () => isUserChanging = true);
-slider.addEventListener("touchend", () => isUserChanging = false);
-
-// 🔥 NEW SYNC FUNCTION
-async function syncRadius() {
-  try {
-    let res = await fetch("/radius");
-    let data = await res.json();
-
-    // only update if user not touching slider
-    if (!isUserChanging) {
-      radius = data.radius;
-
-      slider.value = radius;
-      document.getElementById("rval").innerText = radius;
-
-      circle.setRadius(radius);
-    }
-
-  } catch (err) {
-    console.log("Sync error:", err);
-  }
-}
-
-// run every 3 seconds
 setInterval(syncRadius, 3000);
 
-</script>
-
 // Initial load
-loadRadius();
+syncRadius();
 
 </script>
 
