@@ -125,7 +125,44 @@ async function updateLocation() {
 
 // -------- AUTO REFRESH --------
 setInterval(updateLocation, 3000);
-setInterval(loadRadius, 5000);
+<script>
+
+// prevent overwrite while user dragging
+let isUserChanging = false;
+
+// detect slider interaction
+const slider = document.getElementById("slider");
+
+slider.addEventListener("mousedown", () => isUserChanging = true);
+slider.addEventListener("mouseup", () => isUserChanging = false);
+slider.addEventListener("touchstart", () => isUserChanging = true);
+slider.addEventListener("touchend", () => isUserChanging = false);
+
+// 🔥 NEW SYNC FUNCTION
+async function syncRadius() {
+  try {
+    let res = await fetch("/radius");
+    let data = await res.json();
+
+    // only update if user not touching slider
+    if (!isUserChanging) {
+      radius = data.radius;
+
+      slider.value = radius;
+      document.getElementById("rval").innerText = radius;
+
+      circle.setRadius(radius);
+    }
+
+  } catch (err) {
+    console.log("Sync error:", err);
+  }
+}
+
+// run every 3 seconds
+setInterval(syncRadius, 3000);
+
+</script>
 
 // Initial load
 loadRadius();
