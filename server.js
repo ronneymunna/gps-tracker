@@ -9,44 +9,54 @@ let gpsData = {
   lat: 0,
   lon: 0,
   homeLat: null,
-  homeLon: null
+  homeLon: null,
+  lastSeen: null
 };
 
 let radius = 300;
 let logs = [];
 
-// -------- ROUTES --------
-
-// GPS UPDATE
+// -------- GPS UPDATE --------
 app.post("/update", (req, res) => {
   gpsData = req.body;
+
+  // 🔥 TRACK LAST SEEN
+  gpsData.lastSeen = Date.now();
+
   console.log("📍 GPS:", gpsData);
   res.send("OK");
 });
 
-// GET GPS
+// -------- GET LOCATION --------
 app.get("/location", (req, res) => {
-  res.json(gpsData);
+
+  let now = Date.now();
+
+  // 🔥 ONLINE CHECK (10 sec timeout)
+  let isOnline = gpsData.lastSeen && (now - gpsData.lastSeen < 10000);
+
+  res.json({
+    ...gpsData,
+    online: isOnline
+  });
 });
 
-// SET RADIUS
+// -------- RADIUS --------
 app.post("/radius", (req, res) => {
   radius = req.body.radius;
   console.log("🎯 Radius:", radius);
   res.send("OK");
 });
 
-// GET RADIUS
 app.get("/radius", (req, res) => {
   res.json({ radius });
 });
 
-// -------- LOGS WITH IST TIME --------
+// -------- LOGS WITH IST --------
 app.post("/log", (req, res) => {
 
   let msg = req.body.log;
 
-  // 🔥 FORCE IST TIME
   let time = new Date().toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata"
   });
@@ -60,7 +70,6 @@ app.post("/log", (req, res) => {
   res.send("OK");
 });
 
-// GET LOGS
 app.get("/logs", (req, res) => {
   res.json(logs);
 });
