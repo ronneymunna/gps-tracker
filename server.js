@@ -41,16 +41,18 @@ app.get("/radius", (req, res) => {
   res.json({ radius: radius });
 });
 
-// -------- LOG SYSTEM --------
-
-// RECEIVE LOG
+// -------- LOG WITH TIME --------
 app.post("/log", (req, res) => {
   let msg = req.body.log;
-  logs.push(msg);
 
-  console.log("📡 LOG:", msg);
+  let time = new Date().toLocaleTimeString();
+  let fullLog = `[${time}] ${msg}`;
 
-  if (logs.length > 100) logs.shift(); // limit
+  logs.push(fullLog);
+
+  if (logs.length > 100) logs.shift();
+
+  console.log(fullLog);
   res.send("OK");
 });
 
