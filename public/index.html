@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GPS Geofence Tracker</title>
+  <title>GPS Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -27,13 +27,14 @@
 <h2>📡 GPS Geofence Tracker</h2>
 
 <p id="status">Status: --</p>
+<p id="lastSeen">Last Seen: --</p>
 
 Radius: <span id="rval">300</span> m<br>
 <input type="range" min="50" max="1000" value="300" id="slider">
 
 <div id="map"></div>
 
-<h3>📡 Device Logs</h3>
+<h3>📡 Logs</h3>
 <div id="logs"></div>
 
 <script>
@@ -87,6 +88,24 @@ async function updateLocation() {
   let res = await fetch("/location");
   let data = await res.json();
 
+  // 🔴 OFFLINE
+  if (!data.online) {
+    document.getElementById("status").innerText = "DEVICE OFFLINE ❌";
+
+    marker.setIcon(new L.Icon({
+      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/grey-dot.png',
+      iconSize: [32,32]
+    }));
+
+    if (data.lastSeen) {
+      let t = new Date(data.lastSeen).toLocaleTimeString("en-IN");
+      document.getElementById("lastSeen").innerText = "Last Seen: " + t;
+    }
+
+    return;
+  }
+
+  // 🟢 ONLINE
   if (!data.lat || !data.lon) return;
 
   marker.setLatLng([data.lat, data.lon]);
@@ -94,6 +113,11 @@ async function updateLocation() {
   if (firstFix) {
     map.setView([data.lat, data.lon], 16);
     firstFix = false;
+  }
+
+  if (data.lastSeen) {
+    let t = new Date(data.lastSeen).toLocaleTimeString("en-IN");
+    document.getElementById("lastSeen").innerText = "Last Seen: " + t;
   }
 
   if (data.homeLat && data.homeLon) {
