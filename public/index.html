@@ -61,14 +61,17 @@ const greyIcon = new L.Icon({
   iconAnchor: [12,41]
 });
 
-// -------- MAP --------
+// -------- MAP (RESTORED COLOR VERSION) --------
 let map = L.map('map').setView([21.125, 79.046], 15);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png')
-.addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
+// -------- MARKER --------
 let marker = L.marker([21.125, 79.046], {icon: greyIcon}).addTo(map);
 
+// -------- GEOFENCE --------
 let circle = L.circle([21.125, 79.046], {
   radius: 300,
   color: 'blue'
@@ -83,6 +86,7 @@ const slider = document.getElementById("slider");
 slider.oninput = async function () {
   radius = this.value;
   document.getElementById("rval").innerText = radius;
+
   circle.setRadius(radius);
 
   await fetch("/radius", {
@@ -100,6 +104,7 @@ async function syncRadius() {
   radius = parseInt(data.radius);
   slider.value = radius;
   document.getElementById("rval").innerText = radius;
+
   circle.setRadius(radius);
 }
 
@@ -108,7 +113,7 @@ async function updateLocation() {
   let res = await fetch("/location");
   let data = await res.json();
 
-  // OFFLINE
+  // 🔴 OFFLINE
   if (!data.online) {
     document.getElementById("status").innerText = "DEVICE OFFLINE ❌";
     marker.setIcon(greyIcon);
@@ -121,6 +126,7 @@ async function updateLocation() {
     return;
   }
 
+  // 🟢 ONLINE
   if (!data.lat || !data.lon) return;
 
   marker.setLatLng([data.lat, data.lon]);
