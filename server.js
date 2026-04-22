@@ -6,8 +6,8 @@ app.use(express.static("public"));
 
 // -------- DATA --------
 let gpsData = {
-  lat: 21.125,
-  lon: 79.046,
+  lat: 0,
+  lon: 0,
   homeLat: null,
   homeLon: null
 };
@@ -38,18 +38,22 @@ app.post("/radius", (req, res) => {
 
 // GET RADIUS
 app.get("/radius", (req, res) => {
-  res.json({ radius: radius });
+  res.json({ radius });
 });
 
-// -------- LOG WITH TIME --------
+// -------- LOGS WITH IST TIME --------
 app.post("/log", (req, res) => {
+
   let msg = req.body.log;
 
-  let time = new Date().toLocaleTimeString();
+  // 🔥 FORCE IST TIME
+  let time = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata"
+  });
+
   let fullLog = `[${time}] ${msg}`;
 
   logs.push(fullLog);
-
   if (logs.length > 100) logs.shift();
 
   console.log(fullLog);
@@ -61,7 +65,7 @@ app.get("/logs", (req, res) => {
   res.json(logs);
 });
 
-// START SERVER
+// -------- START --------
 app.listen(process.env.PORT || 3000, () => {
   console.log("🚀 Server running");
 });
