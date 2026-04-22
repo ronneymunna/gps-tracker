@@ -4,12 +4,22 @@
   <title>Live GPS Geofence Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <style>
     body { font-family: Arial; text-align: center; }
     #map { height: 450px; margin-top: 10px; }
+    #logs {
+      height:150px;
+      overflow:auto;
+      border:1px solid gray;
+      margin-top:10px;
+      text-align:left;
+      padding:5px;
+      background:#f9f9f9;
+    }
   </style>
 </head>
 
@@ -23,6 +33,9 @@ Radius: <span id="rval">300</span> m<br>
 <input type="range" min="50" max="1000" value="300" id="slider">
 
 <div id="map"></div>
+
+<h3>📡 Device Logs</h3>
+<div id="logs"></div>
 
 <script>
 
@@ -40,6 +53,7 @@ let circle = L.circle([21.125, 79.046], {
 }).addTo(map);
 
 let radius = 300;
+let firstFix = true;
 
 // -------- SLIDER --------
 const slider = document.getElementById("slider");
@@ -71,7 +85,7 @@ async function syncRadius() {
     let data = await res.json();
 
     if (!isUserChanging) {
-      radius = data.radius;
+      radius = parseInt(data.radius);
 
       slider.value = radius;
       document.getElementById("rval").innerText = radius;
@@ -80,7 +94,7 @@ async function syncRadius() {
     }
 
   } catch (err) {
-    console.log("Sync error:", err);
+    console.log("Radius sync error:", err);
   }
 }
 
@@ -95,9 +109,18 @@ async function updateLocation() {
     let homeLat = data.homeLat;
     let homeLon = data.homeLon;
 
+    // Ignore invalid data
+    if (!lat || !lon) return;
+
     marker.setLatLng([lat, lon]);
 
-    if (homeLat !== null && homeLon !== null) {
+    // Only center map first time
+    if (firstFix) {
+      map.setView([lat, lon], 16);
+      firstFix = false;
+    }
+
+    if (homeLat && homeLon) {
       circle.setLatLng([homeLat, homeLon]);
 
       let distance = map.distance([homeLat, homeLon], [lat, lon]);
@@ -109,6 +132,7 @@ async function updateLocation() {
           iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
           iconSize: [32,32]
         }));
+
       } else {
         document.getElementById("status").innerText = "Status: INSIDE ✅";
 
@@ -119,19 +143,39 @@ async function updateLocation() {
       }
     }
 
-    map.setView([lat, lon], 16);
-
   } catch (err) {
     console.log("Location error:", err);
+  }
+}
+
+// -------- LOAD LOGS --------
+async function loadLogs() {
+  try {
+    let res = await fetch("/logs");
+    let data = await res.json();
+
+    let logDiv = document.getElementById("logs");
+    logDiv.innerHTML = "";
+
+    data.slice().reverse().forEach(log => {
+      let p = document.createElement("p");
+      p.innerText = log;
+      logDiv.appendChild(p);
+    });
+
+  } catch (e) {
+    console.log("Log error", e);
   }
 }
 
 // -------- AUTO RUN --------
 setInterval(updateLocation, 3000);
 setInterval(syncRadius, 3000);
+setInterval(loadLogs, 3000);
 
 // Initial load
 syncRadius();
+loadLogs();
 
 </script>
 
