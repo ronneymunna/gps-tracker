@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live GPS Tracker</title>
+  <title>GPS Geofence Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -24,7 +24,7 @@
 
 <body>
 
-<h2>📡 Live GPS Geofence Tracker</h2>
+<h2>📡 GPS Geofence Tracker</h2>
 
 <p id="status">Status: --</p>
 
@@ -38,7 +38,7 @@ Radius: <span id="rval">300</span> m<br>
 
 <script>
 
-// MAP
+// -------- MAP --------
 let map = L.map('map').setView([21.125, 79.046], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
@@ -54,7 +54,7 @@ let circle = L.circle([21.125, 79.046], {
 let radius = 300;
 let firstFix = true;
 
-// SLIDER
+// -------- SLIDER --------
 const slider = document.getElementById("slider");
 
 slider.oninput = async function () {
@@ -70,25 +70,19 @@ slider.oninput = async function () {
   });
 };
 
-// SYNC RADIUS
-let isUserChanging = false;
-
-slider.addEventListener("mousedown", () => isUserChanging = true);
-slider.addEventListener("mouseup", () => isUserChanging = false);
-
+// -------- SYNC RADIUS --------
 async function syncRadius() {
   let res = await fetch("/radius");
   let data = await res.json();
 
-  if (!isUserChanging) {
-    radius = parseInt(data.radius);
-    slider.value = radius;
-    document.getElementById("rval").innerText = radius;
-    circle.setRadius(radius);
-  }
+  radius = parseInt(data.radius);
+  slider.value = radius;
+  document.getElementById("rval").innerText = radius;
+
+  circle.setRadius(radius);
 }
 
-// LOCATION
+// -------- LOCATION --------
 async function updateLocation() {
   let res = await fetch("/location");
   let data = await res.json();
@@ -112,13 +106,24 @@ async function updateLocation() {
 
     if (distance > radius) {
       document.getElementById("status").innerText = "OUTSIDE 🚨";
+
+      marker.setIcon(new L.Icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+        iconSize: [32,32]
+      }));
+
     } else {
       document.getElementById("status").innerText = "INSIDE ✅";
+
+      marker.setIcon(new L.Icon({
+        iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+        iconSize: [32,32]
+      }));
     }
   }
 }
 
-// LOGS
+// -------- LOGS --------
 async function loadLogs() {
   let res = await fetch("/logs");
   let data = await res.json();
@@ -138,9 +143,9 @@ async function loadLogs() {
   });
 }
 
-// AUTO RUN
+// -------- AUTO --------
 setInterval(updateLocation, 3000);
-setInterval(syncRadius, 3000);
+setInterval(syncRadius, 5000);
 setInterval(loadLogs, 3000);
 
 syncRadius();
