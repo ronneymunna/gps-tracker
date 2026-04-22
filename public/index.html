@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live GPS Geofence Tracker</title>
+  <title>Live GPS Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -39,7 +38,7 @@ Radius: <span id="rval">300</span> m<br>
 
 <script>
 
-// -------- MAP SETUP --------
+// MAP
 let map = L.map('map').setView([21.125, 79.046], 15);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
@@ -55,7 +54,7 @@ let circle = L.circle([21.125, 79.046], {
 let radius = 300;
 let firstFix = true;
 
-// -------- SLIDER --------
+// SLIDER
 const slider = document.getElementById("slider");
 
 slider.oninput = async function () {
@@ -71,109 +70,79 @@ slider.oninput = async function () {
   });
 };
 
-// -------- SYNC RADIUS --------
+// SYNC RADIUS
 let isUserChanging = false;
 
 slider.addEventListener("mousedown", () => isUserChanging = true);
 slider.addEventListener("mouseup", () => isUserChanging = false);
-slider.addEventListener("touchstart", () => isUserChanging = true);
-slider.addEventListener("touchend", () => isUserChanging = false);
 
 async function syncRadius() {
-  try {
-    let res = await fetch("/radius");
-    let data = await res.json();
+  let res = await fetch("/radius");
+  let data = await res.json();
 
-    if (!isUserChanging) {
-      radius = parseInt(data.radius);
-
-      slider.value = radius;
-      document.getElementById("rval").innerText = radius;
-
-      circle.setRadius(radius);
-    }
-
-  } catch (err) {
-    console.log("Radius sync error:", err);
+  if (!isUserChanging) {
+    radius = parseInt(data.radius);
+    slider.value = radius;
+    document.getElementById("rval").innerText = radius;
+    circle.setRadius(radius);
   }
 }
 
-// -------- LOCATION UPDATE --------
+// LOCATION
 async function updateLocation() {
-  try {
-    let res = await fetch("/location");
-    let data = await res.json();
+  let res = await fetch("/location");
+  let data = await res.json();
 
-    let lat = data.lat;
-    let lon = data.lon;
-    let homeLat = data.homeLat;
-    let homeLon = data.homeLon;
+  if (!data.lat || !data.lon) return;
 
-    // Ignore invalid data
-    if (!lat || !lon) return;
+  marker.setLatLng([data.lat, data.lon]);
 
-    marker.setLatLng([lat, lon]);
+  if (firstFix) {
+    map.setView([data.lat, data.lon], 16);
+    firstFix = false;
+  }
 
-    // Only center map first time
-    if (firstFix) {
-      map.setView([lat, lon], 16);
-      firstFix = false;
+  if (data.homeLat && data.homeLon) {
+    circle.setLatLng([data.homeLat, data.homeLon]);
+
+    let distance = map.distance(
+      [data.homeLat, data.homeLon],
+      [data.lat, data.lon]
+    );
+
+    if (distance > radius) {
+      document.getElementById("status").innerText = "OUTSIDE 🚨";
+    } else {
+      document.getElementById("status").innerText = "INSIDE ✅";
     }
-
-    if (homeLat && homeLon) {
-      circle.setLatLng([homeLat, homeLon]);
-
-      let distance = map.distance([homeLat, homeLon], [lat, lon]);
-
-      if (distance > radius) {
-        document.getElementById("status").innerText = "Status: OUTSIDE 🚨";
-
-        marker.setIcon(new L.Icon({
-          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          iconSize: [32,32]
-        }));
-
-      } else {
-        document.getElementById("status").innerText = "Status: INSIDE ✅";
-
-        marker.setIcon(new L.Icon({
-          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-          iconSize: [32,32]
-        }));
-      }
-    }
-
-  } catch (err) {
-    console.log("Location error:", err);
   }
 }
 
-// -------- LOAD LOGS --------
+// LOGS
 async function loadLogs() {
-  try {
-    let res = await fetch("/logs");
-    let data = await res.json();
+  let res = await fetch("/logs");
+  let data = await res.json();
 
-    let logDiv = document.getElementById("logs");
-    logDiv.innerHTML = "";
+  let div = document.getElementById("logs");
+  div.innerHTML = "";
 
-    data.slice().reverse().forEach(log => {
-      let p = document.createElement("p");
-      p.innerText = log;
-      logDiv.appendChild(p);
-    });
+  data.slice().reverse().forEach(log => {
+    let p = document.createElement("p");
 
-  } catch (e) {
-    console.log("Log error", e);
-  }
+    if (log.includes("OUTSIDE")) p.style.color = "red";
+    else if (log.includes("INSIDE")) p.style.color = "green";
+    else if (log.includes("Radius")) p.style.color = "blue";
+
+    p.innerText = log;
+    div.appendChild(p);
+  });
 }
 
-// -------- AUTO RUN --------
+// AUTO RUN
 setInterval(updateLocation, 3000);
 setInterval(syncRadius, 3000);
 setInterval(loadLogs, 3000);
 
-// Initial load
 syncRadius();
 loadLogs();
 
