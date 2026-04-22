@@ -1,52 +1,46 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// 🔥 Serve your website
+app.use(express.json());
 app.use(express.static("public"));
 
-// Store latest GPS
+// -------- DATA --------
 let gpsData = {
-  lat: 21.125470,
-  lon: 79.046180,
+  lat: 21.125,
+  lon: 79.046,
   homeLat: null,
   homeLon: null
 };
 
-// Store radius
 let radius = 300;
 
-// -------- RECEIVE GPS --------
+// -------- ROUTES --------
+
+// POST GPS DATA
 app.post("/update", (req, res) => {
   gpsData = req.body;
-  console.log("📍 New Location:", gpsData);
+  console.log("📍 GPS:", gpsData);
   res.send("OK");
 });
 
-// -------- SEND GPS --------
+// GET GPS DATA
 app.get("/location", (req, res) => {
   res.json(gpsData);
 });
 
-// -------- SET RADIUS --------
+// SET RADIUS
 app.post("/radius", (req, res) => {
   radius = req.body.radius;
-  console.log("🎯 Radius updated:", radius);
+  console.log("🎯 Radius:", radius);
   res.send("OK");
 });
 
-// -------- GET RADIUS --------
+// GET RADIUS
 app.get("/radius", (req, res) => {
-  res.json({ radius });
+  res.json({ radius: radius });
 });
 
-// Start server
-app.listen(3000, () => {
-  console.log("🚀 Server running at http://localhost:3000");
+// START SERVER
+app.listen(process.env.PORT || 3000, () => {
+  console.log("🚀 Server running");
 });
