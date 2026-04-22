@@ -13,17 +13,18 @@ let gpsData = {
 };
 
 let radius = 300;
+let logs = [];
 
 // -------- ROUTES --------
 
-// POST GPS DATA
+// GPS UPDATE
 app.post("/update", (req, res) => {
   gpsData = req.body;
   console.log("📍 GPS:", gpsData);
   res.send("OK");
 });
 
-// GET GPS DATA
+// GET GPS
 app.get("/location", (req, res) => {
   res.json(gpsData);
 });
@@ -38,6 +39,24 @@ app.post("/radius", (req, res) => {
 // GET RADIUS
 app.get("/radius", (req, res) => {
   res.json({ radius: radius });
+});
+
+// -------- LOG SYSTEM --------
+
+// RECEIVE LOG
+app.post("/log", (req, res) => {
+  let msg = req.body.log;
+  logs.push(msg);
+
+  console.log("📡 LOG:", msg);
+
+  if (logs.length > 100) logs.shift(); // limit
+  res.send("OK");
+});
+
+// GET LOGS
+app.get("/logs", (req, res) => {
+  res.json(logs);
 });
 
 // START SERVER
