@@ -2,190 +2,115 @@
 <html>
 <head>
   <title>GPS Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <style>
-    body { font-family: Arial; text-align: center; }
-    #map { height: 450px; margin-top: 10px; }
-    #logs {
-      height:150px;
-      overflow:auto;
-      border:1px solid gray;
-      margin-top:10px;
-      text-align:left;
-      padding:5px;
-      background:#f9f9f9;
-    }
-  </style>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 
 <body>
 
-<h2>📡 GPS Geofence Tracker</h2>
+<h2>GPS Tracker (OpenStreetMap)</h2>
 
-<p id="status">Status: --</p>
-<p id="lastSeen">Last Seen: --</p>
+<div>
+  <label>Latitude:</label>
+  <input id="lat" type="number" step="any"><br>
 
-Radius: <span id="rval">300</span> m<br>
-<input type="range" min="50" max="1000" value="300" id="slider">
+  <label>Longitude:</label>
+  <input id="lon" type="number" step="any"><br>
 
-<div id="map"></div>
+  <label>Radius (meters):</label>
+  <input id="radius" type="number"><br>
 
-<h3>📡 Logs</h3>
-<div id="logs"></div>
+  <button onclick="setGeofence()">Set Geofence</button>
+</div>
+
+<br>
+
+<div id="map" style="height:500px;"></div>
 
 <script>
+let map, marker, circle;
 
-// -------- ICONS --------
-const greenIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25,41],
-  iconAnchor: [12,41]
-});
+const server = "https://gps-tracker-1-yojw.onrender.com"; // your backend
 
-const redIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25,41],
-  iconAnchor: [12,41]
-});
+// ---------------- INIT MAP ----------------
+function initMap() {
 
-const greyIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25,41],
-  iconAnchor: [12,41]
-});
+  map = L.map('map').setView([19.0760, 72.8777], 15);
 
-// -------- MAP (RESTORED COLOR VERSION) --------
-let map = L.map('map').setView([21.125, 79.046], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  marker = L.marker([19.0760, 72.8777]).addTo(map);
+}
 
-// -------- MARKER --------
-let marker = L.marker([21.125, 79.046], {icon: greyIcon}).addTo(map);
+// ---------------- LOAD LOCATION ----------------
+async function loadLocation() {
+  const res = await fetch(server + "/location");
+  const data = await res.json();
 
-// -------- GEOFENCE --------
-let circle = L.circle([21.125, 79.046], {
-  radius: 300,
-  color: 'blue'
-}).addTo(map);
+  if (data.lat) {
+    const pos = [data.lat, data.lon];
 
-let radius = 300;
-let firstFix = true;
+    marker.setLatLng(pos);
+    map.setView(pos);
+  }
+}
 
-// -------- SLIDER --------
-const slider = document.getElementById("slider");
+// ---------------- LOAD GEOFENCE ----------------
+async function loadGeofence() {
+  const res = await fetch(server + "/geofence");
+  const data = await res.json();
 
-slider.oninput = async function () {
-  radius = this.value;
-  document.getElementById("rval").innerText = radius;
+  document.getElementById("lat").value = data.lat;
+  document.getElementById("lon").value = data.lon;
+  document.getElementById("radius").value = data.radius;
 
-  circle.setRadius(radius);
+  drawCircle(data);
+}
 
-  await fetch("/radius", {
+// ---------------- DRAW CIRCLE ----------------
+function drawCircle(data) {
+
+  if (circle) {
+    map.removeLayer(circle);
+  }
+
+  circle = L.circle([data.lat, data.lon], {
+    radius: data.radius,
+    color: 'red',
+    fillOpacity: 0.2
+  }).addTo(map);
+}
+
+// ---------------- SET GEOFENCE ----------------
+async function setGeofence() {
+
+  const lat = parseFloat(document.getElementById("lat").value);
+  const lon = parseFloat(document.getElementById("lon").value);
+  const radius = parseInt(document.getElementById("radius").value);
+
+  await fetch(server + "/geofence", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ radius })
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ lat, lon, radius })
   });
-};
 
-// -------- SYNC RADIUS --------
-async function syncRadius() {
-  let res = await fetch("/radius");
-  let data = await res.json();
-
-  radius = parseInt(data.radius);
-  slider.value = radius;
-  document.getElementById("rval").innerText = radius;
-
-  circle.setRadius(radius);
+  drawCircle({ lat, lon, radius });
 }
 
-// -------- LOCATION --------
-async function updateLocation() {
-  let res = await fetch("/location");
-  let data = await res.json();
+// ---------------- AUTO REFRESH ----------------
+setInterval(loadLocation, 5000);
 
-  // 🔴 OFFLINE
-  if (!data.online) {
-    document.getElementById("status").innerText = "DEVICE OFFLINE ❌";
-    marker.setIcon(greyIcon);
-
-    if (data.lastSeen) {
-      let t = new Date(data.lastSeen).toLocaleTimeString("en-IN");
-      document.getElementById("lastSeen").innerText = "Last Seen: " + t;
-    }
-
-    return;
-  }
-
-  // 🟢 ONLINE
-  if (!data.lat || !data.lon) return;
-
-  marker.setLatLng([data.lat, data.lon]);
-
-  if (firstFix) {
-    map.setView([data.lat, data.lon], 16);
-    firstFix = false;
-  }
-
-  if (data.lastSeen) {
-    let t = new Date(data.lastSeen).toLocaleTimeString("en-IN");
-    document.getElementById("lastSeen").innerText = "Last Seen: " + t;
-  }
-
-  if (data.homeLat && data.homeLon) {
-    circle.setLatLng([data.homeLat, data.homeLon]);
-
-    let distance = map.distance(
-      [data.homeLat, data.homeLon],
-      [data.lat, data.lon]
-    );
-
-    if (distance > radius) {
-      document.getElementById("status").innerText = "OUTSIDE 🚨";
-      marker.setIcon(redIcon);
-    } else {
-      document.getElementById("status").innerText = "INSIDE ✅";
-      marker.setIcon(greenIcon);
-    }
-  }
-}
-
-// -------- LOGS --------
-async function loadLogs() {
-  let res = await fetch("/logs");
-  let data = await res.json();
-
-  let div = document.getElementById("logs");
-  div.innerHTML = "";
-
-  data.slice().reverse().forEach(log => {
-    let p = document.createElement("p");
-
-    if (log.includes("OUTSIDE")) p.style.color = "red";
-    else if (log.includes("INSIDE")) p.style.color = "green";
-    else if (log.includes("Radius")) p.style.color = "blue";
-
-    p.innerText = log;
-    div.appendChild(p);
-  });
-}
-
-// -------- AUTO --------
-setInterval(updateLocation, 3000);
-setInterval(syncRadius, 5000);
-setInterval(loadLogs, 3000);
-
-syncRadius();
-loadLogs();
+// ---------------- START ----------------
+initMap();
+loadGeofence();
 
 </script>
 
