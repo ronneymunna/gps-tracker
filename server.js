@@ -1,80 +1,66 @@
 const express = require("express");
 const app = express();
+const PORT = 3000;
 
 app.use(express.json());
-app.use(express.static("public"));
 
-// -------- DATA --------
-let gpsData = {
-  lat: 0,
-  lon: 0,
-  homeLat: null,
-  homeLon: null,
-  lastSeen: null
+// ---------------- GEOFENCE STORAGE ----------------
+let geofence = {
+  lat: 19.0760,
+  lon: 72.8777,
+  radius: 300
 };
 
-let radius = 300;
-let logs = [];
+// ---------------- LAST LOCATION ----------------
+let lastLocation = {
+  lat: null,
+  lon: null
+};
 
-// -------- GPS UPDATE --------
+// ---------------- ROUTES ----------------
+
+// ✅ GET GEOFENCE (ESP uses this)
+app.get("/geofence", (req, res) => {
+  res.json(geofence);
+});
+
+// ✅ UPDATE GEOFENCE (Website uses this)
+app.post("/geofence", (req, res) => {
+  const { lat, lon, radius } = req.body;
+
+  geofence.lat = lat;
+  geofence.lon = lon;
+  geofence.radius = radius;
+
+  console.log("Geofence Updated:", geofence);
+
+  res.json({ status: "ok" });
+});
+
+// ✅ GPS UPDATE (ESP sends this)
 app.post("/update", (req, res) => {
-  gpsData = req.body;
+  const { lat, lon } = req.body;
 
-  // 🔥 TRACK LAST SEEN
-  gpsData.lastSeen = Date.now();
+  lastLocation.lat = lat;
+  lastLocation.lon = lon;
 
-  console.log("📍 GPS:", gpsData);
-  res.send("OK");
+  console.log("Location:", lat, lon);
+
+  res.json({ status: "received" });
 });
 
-// -------- GET LOCATION --------
+// ✅ GET LAST LOCATION (Website uses)
 app.get("/location", (req, res) => {
-
-  let now = Date.now();
-
-  // 🔥 ONLINE CHECK (10 sec timeout)
-  let isOnline = gpsData.lastSeen && (now - gpsData.lastSeen < 10000);
-
-  res.json({
-    ...gpsData,
-    online: isOnline
-  });
+  res.json(lastLocation);
 });
 
-// -------- RADIUS --------
-app.post("/radius", (req, res) => {
-  radius = req.body.radius;
-  console.log("🎯 Radius:", radius);
-  res.send("OK");
-});
-
-app.get("/radius", (req, res) => {
-  res.json({ radius });
-});
-
-// -------- LOGS WITH IST --------
+// ✅ LOG
 app.post("/log", (req, res) => {
-
-  let msg = req.body.log;
-
-  let time = new Date().toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata"
-  });
-
-  let fullLog = `[${time}] ${msg}`;
-
-  logs.push(fullLog);
-  if (logs.length > 100) logs.shift();
-
-  console.log(fullLog);
-  res.send("OK");
+  console.log("LOG:", req.body.log);
+  res.json({ ok: true });
 });
 
-app.get("/logs", (req, res) => {
-  res.json(logs);
-});
-
-// -------- START --------
-app.listen(process.env.PORT || 3000, () => {
-  console.log("🚀 Server running");
+// ---------------- START SERVER ----------------
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
