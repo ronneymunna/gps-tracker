@@ -1,17 +1,8 @@
 const express = require("express");
 const app = express();
 
-// 🔥 TRUST PROXY (IMPORTANT FOR RENDER)
+// -------- IMPORTANT FOR RENDER --------
 app.enable("trust proxy");
-
-// 🔥 FORCE ALLOW HTTP (PREVENT 307 REDIRECT ISSUES)
-app.use((req, res, next) => {
-  const proto = req.headers["x-forwarded-proto"];
-  if (proto === "http") {
-    return next();
-  }
-  return next();
-});
 
 // -------- MIDDLEWARE --------
 app.use(express.json());
@@ -29,28 +20,35 @@ let gpsData = {
 let radius = 300;
 let logs = [];
 
-// -------- GPS UPDATE --------
-app.post("/update", (req, res) => {
+// =====================================================
+// 🔥 MAIN ROUTE (GET - FROM ESP32)
+// =====================================================
+app.get("/update", (req, res) => {
 
-  console.log("📥 RAW BODY:", req.body);
+  console.log("📥 RAW QUERY:", req.query);
 
-  // 🔴 HANDLE EMPTY BODY (IMPORTANT)
-  if (!req.body || Object.keys(req.body).length === 0) {
-    console.log("❌ EMPTY BODY RECEIVED");
-    return res.status(400).send("Invalid JSON");
+  // Validate input
+  if (!req.query.lat || !req.query.lon) {
+    console.log("❌ INVALID DATA");
+    return res.status(400).send("Invalid parameters");
   }
 
-  gpsData = req.body;
-
-  // 🔥 ADD LAST SEEN
-  gpsData.lastSeen = Date.now();
+  gpsData = {
+    lat: parseFloat(req.query.lat),
+    lon: parseFloat(req.query.lon),
+    homeLat: parseFloat(req.query.homeLat),
+    homeLon: parseFloat(req.query.homeLon),
+    lastSeen: Date.now()
+  };
 
   console.log("📍 GPS UPDATE:", gpsData);
 
-  res.status(200).send("OK");
+  res.send("OK");
 });
 
-// -------- GET LOCATION --------
+// =====================================================
+// 📍 GET CURRENT LOCATION
+// =====================================================
 app.get("/location", (req, res) => {
 
   let now = Date.now();
@@ -63,10 +61,18 @@ app.get("/location", (req, res) => {
   });
 });
 
-// -------- RADIUS --------
+// =====================================================
+// 🎯 RADIUS CONTROL
+// =====================================================
 app.post("/radius", (req, res) => {
+
+  if (!req.body.radius) {
+    return res.status(400).send("No radius provided");
+  }
+
   radius = req.body.radius;
   console.log("🎯 Radius Updated:", radius);
+
   res.send("OK");
 });
 
@@ -74,7 +80,9 @@ app.get("/radius", (req, res) => {
   res.json({ radius });
 });
 
-// -------- LOGS --------
+// =====================================================
+// 📝 LOG SYSTEM
+// =====================================================
 app.post("/log", (req, res) => {
 
   let msg = req.body.log || "NO MESSAGE";
@@ -89,6 +97,7 @@ app.post("/log", (req, res) => {
   if (logs.length > 100) logs.shift();
 
   console.log(fullLog);
+
   res.send("OK");
 });
 
@@ -96,12 +105,16 @@ app.get("/logs", (req, res) => {
   res.json(logs);
 });
 
-// -------- HEALTH CHECK --------
+// =====================================================
+// 🟢 HEALTH CHECK
+// =====================================================
 app.get("/", (req, res) => {
   res.send("🚀 GPS SERVER RUNNING");
 });
 
-// -------- START --------
+// =====================================================
+// 🚀 START SERVER
+// =====================================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
